@@ -1,0 +1,70 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local button = script.Parent -- Reference to the TextButton
+
+-- Specify the remote event name for damage in Da Hood
+local remoteEventName = "Damage" -- This is the typical event for damage in Da Hood
+
+-- Fake lag/block settings
+local blockActive = false
+local originalFireServer -- To store the original FireServer function
+
+-- Function to block sending the Damage remote event
+local function blockDamageEvent()
+	local remoteEvent = replicatedStorage:FindFirstChild(remoteEventName)
+	if remoteEvent and not originalFireServer then
+		-- Store the original FireServer function
+		originalFireServer = remoteEvent.FireServer
+
+		-- Override the FireServer method to prevent sending packets
+		remoteEvent.FireServer = function(...)
+			warn("Blocked sending of: " .. remoteEventName)
+		end
+	else
+		warn("Remote Event not found: " .. remoteEventName)
+	end
+end
+
+-- Function to restore the original FireServer method
+local function restoreDamageEvent()
+	local remoteEvent = replicatedStorage:FindFirstChild(remoteEventName)
+	if remoteEvent and originalFireServer then
+		remoteEvent.FireServer = originalFireServer -- Restore the original function
+	end
+end
+
+-- Function to toggle the blocking of packets
+local function toggleBlock()
+	blockActive = not blockActive  -- Toggle the state
+
+	if blockActive then
+		button.BackgroundColor3 = Color3.new(0.905882, 0.196078, 0.0196078) -- Orange when active
+		blockDamageEvent()  -- Start blocking the damage event
+	else
+		button.BackgroundColor3 = Color3.new(0.0117647, 0.0117647, 0.0117647) -- Black when inactive
+		restoreDamageEvent()  -- Restore the damage event when toggled off
+	end
+end
+
+-- Function to handle character reset
+local function onCharacterAdded(character)
+	-- Restore block if it was active before respawn
+	if blockActive then
+		blockDamageEvent()
+	end
+end
+
+-- Connect the button click event to toggle blocking
+button.MouseButton1Click:Connect(toggleBlock)
+
+-- Connect the character added event
+player.CharacterAdded:Connect(onCharacterAdded)
+
+-- Initialize the button state when the game starts
+button.BackgroundColor3 = Color3.new(0.0117647, 0.0117647, 0.0117647) -- Set the initial color to black
+
+-- Ensure the block is active if the player already has a character when the script runs
+if player.Character then
+	onCharacterAdded(player.Character)
+end
